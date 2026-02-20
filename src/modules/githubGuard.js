@@ -1,10 +1,9 @@
 import { Octokit } from "@octokit/rest";
 import { getConfig } from "../config.js";
 
-const ALLOWED_OPERATIONS = [
+const ALLOWED_SCOPES = new Set([
   "pulls.create",
   "issues.addLabels",
-
   "repos.get",
   "git.getRef",
   "git.createRef",
@@ -12,57 +11,34 @@ const ALLOWED_OPERATIONS = [
   "git.createTree",
   "git.createCommit",
   "git.updateRef",
-];
+]);
 
-class PermissionDeniedError extends Error {
-  constructor(operation) {
-    super(`GUARD: operation "${operation}" is blocked. The AI agent only has permission to create pull requests and supporting git operations.`);
-    this.name = "PermissionDeniedError";
-    this.operation = operation;
-  }
+function createGuard(octokit) {
+  return new Proxy(octokit, {
+    get(target, prop) {
+      const val = target[prop];
+      if (typeof val !== "object" || val === null) return val;
+
+      return new Proxy(val, {
+        get(innerTarget, innerProp) {
+          const fn = innerTarget[innerProp];
+          if (typeof fn !== "function") return fn;
+
+          const scope = `${prop}.${innerProp}`;
+          if (!ALLOWED_SCOPES.has(scope)) {
+            return () => {
+              throw new Error(`GitHub operation "${scope}" is not allowed by the security guard.`);
+            };
+          }
+          return fn.bind(innerTarget);
+        },
+      });
+    },
+  });
 }
 
-export class GitHubGuard {
-  constructor() {
-    const config = getConfig();
-    this._raw = new Octokit({ auth: config.github.token });
-    this._octokit = this._buildProxy();
-  }
-
-  get octokit() {
-    return this._octokit;
-  }
-
-  _buildProxy() {
-    const raw = this._raw;
-
-    return new Proxy(raw, {
-      get(target, namespace) {
-        const ns = target[namespace];
-        if (typeof ns !== "object" || ns === null) return ns;
-
-        return new Proxy(ns, {
-          get(nsTarget, method) {
-            const fn = nsTarget[method];
-            if (typeof fn !== "function") return fn;
-
-            const key = `${namespace}.${method}`;
-
-            if (!ALLOWED_OPERATIONS.includes(key)) {
-              return async () => {
-                throw new PermissionDeniedError(key);
-              };
-            }
-
-            return fn.bind(nsTarget);
-          },
-        });
-      },
-    });
-  }
-}
-
-export function getGuardedOctokit() {
-  const guard = new GitHubGuard();
-  return guard.octokit;
+export function getGuardedOctokit(config) {
+  const cfg = config || getConfig();
+  const octokit = new Octokit({ auth: cfg.github.token });
+  return createGuard(octokit);
 }

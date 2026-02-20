@@ -1,26 +1,27 @@
 import { Octokit } from "@octokit/rest";
-import { createWriteStream, existsSync, mkdirSync, rmSync, readFileSync } from "fs";
-import { join, relative } from "path";
+import { existsSync, mkdirSync, rmSync, readFileSync } from "fs";
+import { join } from "path";
 import { pipeline } from "stream/promises";
 import { createGunzip } from "zlib";
 import { extract } from "tar";
 import { getConfig } from "../config.js";
 
 export class RepoManager {
-  constructor(owner, repo) {
+  constructor(owner, repo, config) {
     this.owner = owner;
     this.repo = repo;
-    const config = getConfig();
-    this.octokit = new Octokit({ auth: config.github.token });
-    this.localPath = join(config.workspaceDir, `${owner}--${repo}`);
+    const cfg = config || getConfig();
+    this.octokit = new Octokit({ auth: cfg.github.token });
+    this.localPath = join(cfg.workspaceDir, `${owner}--${repo}`);
     this.defaultBranch = "main";
     this.baseSha = null;
+    this._token = cfg.github.token;
+    this._workspaceDir = cfg.workspaceDir;
   }
 
   async clone() {
-    const config = getConfig();
-    if (!existsSync(config.workspaceDir)) {
-      mkdirSync(config.workspaceDir, { recursive: true });
+    if (!existsSync(this._workspaceDir)) {
+      mkdirSync(this._workspaceDir, { recursive: true });
     }
     if (existsSync(this.localPath)) {
       rmSync(this.localPath, { recursive: true, force: true });
@@ -43,7 +44,7 @@ export class RepoManager {
     const tarballUrl = `https://api.github.com/repos/${this.owner}/${this.repo}/tarball/${this.defaultBranch}`;
     const response = await fetch(tarballUrl, {
       headers: {
-        Authorization: `token ${config.github.token}`,
+        Authorization: `token ${this._token}`,
         Accept: "application/vnd.github+json",
       },
       redirect: "follow",

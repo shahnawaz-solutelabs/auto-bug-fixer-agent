@@ -1,13 +1,5 @@
 import { resolve } from "path";
 
-function required(name) {
-  const val = process.env[name];
-  if (!val) {
-    throw new Error(`Missing required environment variable: ${name}. Add it to your .env file.`);
-  }
-  return val;
-}
-
 function optional(name, fallback = "") {
   return process.env[name] || fallback;
 }
@@ -22,28 +14,44 @@ function getWorkspaceDir() {
   return resolve(process.cwd(), "./workspace");
 }
 
-let _config = null;
+/**
+ * Build a config object from user-provided tokens (stored in MongoDB).
+ * Falls back to env vars for backward compatibility.
+ */
+export function buildConfig(userTokens = {}) {
+  const githubToken = userTokens.githubToken || process.env.GITHUB_TOKEN || "";
+  const anthropicKey = userTokens.anthropicKey || process.env.ANTHROPIC_API_KEY || "";
+  const jiraEmail = userTokens.jiraEmail || process.env.JIRA_EMAIL || "";
+  const jiraToken = userTokens.jiraToken || process.env.JIRA_API_TOKEN || "";
 
-export function getConfig() {
-  if (_config) return _config;
+  if (!githubToken) {
+    throw new Error("GitHub token is required. Add it in Settings.");
+  }
+  if (!anthropicKey) {
+    throw new Error("Anthropic API key is required. Add it in Settings.");
+  }
 
-  _config = {
-    github: {
-      token: required("GITHUB_TOKEN"),
-    },
+  return {
+    github: { token: githubToken },
     anthropic: {
-      apiKey: required("ANTHROPIC_API_KEY"),
+      apiKey: anthropicKey,
       model: optional("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
     },
     jira: {
-      email: optional("JIRA_EMAIL"),
-      apiToken: optional("JIRA_API_TOKEN"),
+      email: jiraEmail,
+      apiToken: jiraToken,
       get enabled() {
         return !!(this.email && this.apiToken);
       },
     },
     workspaceDir: getWorkspaceDir(),
   };
+}
 
+let _config = null;
+
+export function getConfig() {
+  if (_config) return _config;
+  _config = buildConfig();
   return _config;
 }

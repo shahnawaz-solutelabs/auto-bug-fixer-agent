@@ -6,16 +6,17 @@ import { TestRunner } from "./modules/testRunner.js";
 import { PRCreator } from "./modules/prCreator.js";
 
 export class Orchestrator {
-  constructor(owner, repo) {
+  constructor(owner, repo, config) {
     this.owner = owner;
     this.repo = repo;
+    this.config = config;
   }
 
   async run(description, { onProgress, onStepDone }) {
     const startTime = Date.now();
 
     onProgress("Cloning repository…");
-    const repoManager = new RepoManager(this.owner, this.repo);
+    const repoManager = new RepoManager(this.owner, this.repo, this.config);
     await repoManager.clone();
     const repoPath = repoManager.getLocalPath();
     const baseBranch = repoManager.getDefaultBranch();
@@ -35,7 +36,7 @@ export class Orchestrator {
     onStepDone();
 
     onProgress("Generating fix with Claude…");
-    const llm = new LLMCodeFixer();
+    const llm = new LLMCodeFixer(this.config);
     const { patches, explanation } = await llm.generateFix(
       taskContext,
       fileTree,
@@ -65,7 +66,7 @@ export class Orchestrator {
     onStepDone();
 
     onProgress("Creating pull request…");
-    const prCreator = new PRCreator(this.owner, this.repo);
+    const prCreator = new PRCreator(this.owner, this.repo, this.config);
     const pr = await prCreator.create({
       branchName,
       baseBranch,

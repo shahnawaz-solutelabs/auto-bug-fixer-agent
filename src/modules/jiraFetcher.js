@@ -1,17 +1,16 @@
 import { getConfig } from "../config.js";
 
 export class JiraFetcher {
-  constructor() {
-    const config = getConfig();
-    this.email = config.jira.email;
-    this.token = config.jira.apiToken;
+  constructor(config) {
+    const cfg = config || getConfig();
+    this.email = cfg.jira.email;
+    this.token = cfg.jira.apiToken;
     this.auth = Buffer.from(`${this.email}:${this.token}`).toString("base64");
   }
 
   parseTicketUrl(url) {
     const trimmed = url.trim();
 
-    // https://company.atlassian.net/browse/PROJ-123
     const browseMatch = trimmed.match(/\/browse\/([A-Z][A-Z0-9]+-\d+)/i);
     if (browseMatch) {
       return {
@@ -20,7 +19,6 @@ export class JiraFetcher {
       };
     }
 
-    // https://company.atlassian.net/jira/software/projects/PROJ/boards/1?selectedIssue=PROJ-123
     const paramMatch = trimmed.match(/selectedIssue=([A-Z][A-Z0-9]+-\d+)/i);
     if (paramMatch) {
       return {

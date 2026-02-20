@@ -1,8 +1,10 @@
 import { getGuardedOctokit } from "./githubGuard.js";
+import { getConfig } from "../config.js";
 
 export class PRCreator {
-  constructor(owner, repo) {
-    this.octokit = getGuardedOctokit();
+  constructor(owner, repo, config) {
+    const cfg = config || getConfig();
+    this.octokit = getGuardedOctokit(cfg);
     this.owner = owner;
     this.repo = repo;
   }

@@ -2,10 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getConfig } from "../config.js";
 
 export class LLMCodeFixer {
-  constructor() {
-    const config = getConfig();
-    this.client = new Anthropic({ apiKey: config.anthropic.apiKey });
-    this.model = config.anthropic.model;
+  constructor(config) {
+    const cfg = config || getConfig();
+    this.client = new Anthropic({ apiKey: cfg.anthropic.apiKey });
+    this.model = cfg.anthropic.model;
   }
 
   async generateFix(taskContext, fileTree, relevantFiles) {
