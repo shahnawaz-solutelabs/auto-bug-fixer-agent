@@ -58,7 +58,7 @@ export class Orchestrator {
 
     onProgress("Committing and pushing…");
     const commitMsg = `fix: ${taskContext.title}\n\n${explanation}`;
-    const committed = await repoManager.commitAndPush(branchName, commitMsg);
+    const committed = await repoManager.commitAndPush(branchName, commitMsg, patchedFiles);
     if (!committed) {
       throw new Error("Nothing was committed — the fix may not have produced changes.");
     }

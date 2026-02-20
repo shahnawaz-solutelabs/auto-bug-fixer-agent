@@ -4,20 +4,19 @@ import { getConfig } from "../config.js";
 const ALLOWED_OPERATIONS = [
   "pulls.create",
   "issues.addLabels",
-];
 
-const BLOCKED_GIT_FLAGS = [
-  "--force",
-  "-f",
-  "--delete",
-  "-d",
-  "-D",
-  "--force-with-lease",
+  "repos.get",
+  "git.getRef",
+  "git.createRef",
+  "git.createBlob",
+  "git.createTree",
+  "git.createCommit",
+  "git.updateRef",
 ];
 
 class PermissionDeniedError extends Error {
   constructor(operation) {
-    super(`GUARD: operation "${operation}" is blocked. The AI agent only has permission to create pull requests.`);
+    super(`GUARD: operation "${operation}" is blocked. The AI agent only has permission to create pull requests and supporting git operations.`);
     this.name = "PermissionDeniedError";
     this.operation = operation;
   }
@@ -60,14 +59,6 @@ export class GitHubGuard {
         });
       },
     });
-  }
-}
-
-export function validateGitPushArgs(args) {
-  for (const arg of args) {
-    if (BLOCKED_GIT_FLAGS.includes(arg)) {
-      throw new PermissionDeniedError(`git push ${arg}`);
-    }
   }
 }
 

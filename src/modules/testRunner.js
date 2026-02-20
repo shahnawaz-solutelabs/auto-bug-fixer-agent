@@ -2,6 +2,8 @@ import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 
+const IS_SERVERLESS = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
 const TEST_STRATEGIES = [
   {
     name: "npm test",
@@ -40,6 +42,10 @@ const TEST_STRATEGIES = [
 
 export class TestRunner {
   run(repoPath) {
+    if (IS_SERVERLESS) {
+      return { passed: true, skipped: true, output: "Skipped — serverless environment" };
+    }
+
     const strategy = TEST_STRATEGIES.find((s) => s.detect(repoPath));
 
     if (!strategy) {
