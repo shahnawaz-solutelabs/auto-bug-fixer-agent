@@ -1,0 +1,21 @@
+{
+  "name": "ai-bug-fixer-agent",
+  "version": "2.0.0",
+  "description": "AI chatbot agent that resolves GitHub bugs and creates PRs via a web UI",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@octokit/rest": "^21.0.0",
+    "dotenv": "^16.4.5",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "simple-git": "^3.25.0"
+  },
+  "type": "module"
+}
