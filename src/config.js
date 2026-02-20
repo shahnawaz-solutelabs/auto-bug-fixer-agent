@@ -32,7 +32,10 @@ export function getConfig() {
         return !!(this.email && this.apiToken);
       },
     },
-    workspaceDir: resolve(process.cwd(), optional("WORKSPACE_DIR", "./workspace")),
+    workspaceDir: resolve(
+      optional("WORKSPACE_DIR", "")
+        || (process.env.VERCEL ? "/tmp/workspace" : "./workspace")
+    ),
   };
 
   return _config;
