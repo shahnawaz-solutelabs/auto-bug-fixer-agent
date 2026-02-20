@@ -1,4 +1,4 @@
-# AI Bug Fixer Agent
+# AI Bug Fixer Agent 
 
 A full-stack chatbot that resolves GitHub bugs and creates pull requests automatically. Paste a repo URL, describe the bug, and the agent clones the repo, generates a fix with Claude, runs tests, and opens a PR — all streamed live to the chat UI.
 
