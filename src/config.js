@@ -12,6 +12,16 @@ function optional(name, fallback = "") {
   return process.env[name] || fallback;
 }
 
+function getWorkspaceDir() {
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT);
+  if (isServerless) return "/tmp/workspace";
+
+  const custom = process.env.WORKSPACE_DIR;
+  if (custom) return resolve(process.cwd(), custom);
+
+  return resolve(process.cwd(), "./workspace");
+}
+
 let _config = null;
 
 export function getConfig() {
@@ -32,10 +42,7 @@ export function getConfig() {
         return !!(this.email && this.apiToken);
       },
     },
-    workspaceDir: resolve(
-      optional("WORKSPACE_DIR", "")
-        || (process.env.VERCEL ? "/tmp/workspace" : "./workspace")
-    ),
+    workspaceDir: getWorkspaceDir(),
   };
 
   return _config;
