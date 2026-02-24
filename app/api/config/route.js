@@ -13,7 +13,14 @@ export async function GET() {
 
   const tokens = await getUserSettings(session.user.id);
   const jiraEnabled = !!(tokens.jiraEmail && tokens.jiraToken);
+  const sentryEnabled = !!tokens.sentryToken;
   const hasTokens = !!(tokens.githubToken && tokens.anthropicKey);
 
-  return Response.json({ jiraEnabled, hasTokens });
+  return Response.json({
+    jiraEnabled,
+    sentryEnabled,
+    sentryOrg: tokens.sentryOrg || "",
+    sentryProject: tokens.sentryProject || "",
+    hasTokens,
+  });
 }

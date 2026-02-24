@@ -7,6 +7,7 @@ const PHASE = {
   REPO: "repo",
   SOURCE: "source",
   JIRA: "jira",
+  SENTRY: "sentry",
   DESCRIBE: "describe",
   RUNNING: "running",
 };
@@ -85,6 +86,14 @@ function PencilIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
       <path d="m15 5 4 4" />
+    </svg>
+  );
+}
+
+function SentryIcon() {
+  return (
+    <svg viewBox="0 0 72 66" fill="currentColor" width="22" height="22">
+      <path d="M29 2.26a3.68 3.68 0 0 0-6.38 0L.55 46.56A3.67 3.67 0 0 0 3.74 52h8.1a3.67 3.67 0 0 0 3.18-1.84L29 24.58a16.13 16.13 0 0 1 7.64 13.7v1.72h-4.3a3.67 3.67 0 0 0 0 7.34h11.63a3.67 3.67 0 0 0 3.67-3.67v-5.39A23.47 23.47 0 0 0 36.15 16.3L42.3 5.5a3.67 3.67 0 0 0-6.37 0L33 10.44A30.82 30.82 0 0 1 55 38.28v5.39a3.67 3.67 0 0 0 3.67 3.67h9.59A3.67 3.67 0 0 0 71.45 41.84Z" />
     </svg>
   );
 }
@@ -183,7 +192,7 @@ function ResultCard({ data }) {
   );
 }
 
-function SourcePicker({ onSelect, jiraEnabled }) {
+function SourcePicker({ onSelect, jiraEnabled, sentryEnabled }) {
   return (
     <div className="source-picker">
       <div className="source-card" onClick={() => onSelect("jira")} data-disabled={!jiraEnabled}>
@@ -191,6 +200,13 @@ function SourcePicker({ onSelect, jiraEnabled }) {
         <div className="source-card-text">
           <strong>Jira Ticket</strong>
           <span>{jiraEnabled ? "Paste a Jira ticket URL to auto-import the details" : "Not configured — add Jira tokens in Settings"}</span>
+        </div>
+      </div>
+      <div className="source-card" onClick={() => onSelect("sentry")} data-disabled={!sentryEnabled}>
+        <div className="source-card-icon sentry"><SentryIcon /></div>
+        <div className="source-card-text">
+          <strong>Sentry Issue</strong>
+          <span>{sentryEnabled ? "Pick an unresolved issue from your Sentry project" : "Not configured — add Sentry token in Settings"}</span>
         </div>
       </div>
       <div className="source-card" onClick={() => onSelect("manual")}>
@@ -204,7 +220,99 @@ function SourcePicker({ onSelect, jiraEnabled }) {
   );
 }
 
-function MessageBubble({ msg, onSourceSelect, jiraEnabled, userImage }) {
+function SentryIssuePicker({ orgSlug, projectSlug, onSelect }) {
+  const [issues, setIssues] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+
+  const fetchIssues = useCallback(async (cursor = null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/sentry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgSlug, projectSlug, cursor }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+      setIssues((prev) => cursor ? [...prev, ...data.issues] : data.issues);
+      setNextCursor(data.nextCursor);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setInitialLoaded(true);
+    }
+  }, [orgSlug, projectSlug]);
+
+  useEffect(() => {
+    fetchIssues();
+  }, [fetchIssues]);
+
+  if (!initialLoaded && loading) {
+    return (
+      <div className="sentry-issues">
+        <div className="sentry-issues-loading">
+          <SpinnerIcon /> Loading Sentry issues…
+        </div>
+      </div>
+    );
+  }
+
+  if (error && issues.length === 0) {
+    return (
+      <div className="sentry-issues">
+        <div className="sentry-issues-error">{error}</div>
+      </div>
+    );
+  }
+
+  if (initialLoaded && issues.length === 0) {
+    return (
+      <div className="sentry-issues">
+        <div className="sentry-issues-empty">No unresolved issues found in this project.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="sentry-issues">
+      <div className="sentry-issues-header">Select a Sentry issue to fix:</div>
+      <div className="sentry-issues-list">
+        {issues.map((issue) => (
+          <div key={issue.id} className="sentry-issue-card" onClick={() => onSelect(issue)}>
+            <div className="sentry-issue-top">
+              <span className={`sentry-level sentry-level-${issue.level}`}>{issue.level}</span>
+              <span className="sentry-short-id">{issue.shortId}</span>
+              <span className="sentry-events">{issue.count} events</span>
+              <span className="sentry-users">{issue.userCount} users</span>
+            </div>
+            <div className="sentry-issue-title">{issue.title}</div>
+            {issue.culprit && <div className="sentry-issue-culprit">{issue.culprit}</div>}
+            <div className="sentry-issue-meta">
+              Last seen {new Date(issue.lastSeen).toLocaleDateString()}
+            </div>
+          </div>
+        ))}
+      </div>
+      {error && <div className="sentry-issues-error" style={{ marginTop: 8 }}>{error}</div>}
+      {nextCursor && (
+        <button
+          className="sentry-load-more"
+          onClick={() => fetchIssues(nextCursor)}
+          disabled={loading}
+        >
+          {loading ? "Loading…" : "Load More"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MessageBubble({ msg, onSourceSelect, onSentrySelect, jiraEnabled, sentryEnabled, sentryOrg, sentryProject, userImage }) {
   const isUser = msg.role === "user";
   return (
     <div className="message">
@@ -219,7 +327,8 @@ function MessageBubble({ msg, onSourceSelect, jiraEnabled, userImage }) {
         <div className="message-sender">{isUser ? "You" : "AI Bug Fixer"}</div>
         <div className="message-content">
           {msg.text && <p>{msg.text}</p>}
-          {msg.sourcePicker && <SourcePicker onSelect={onSourceSelect} jiraEnabled={jiraEnabled} />}
+          {msg.sourcePicker && <SourcePicker onSelect={onSourceSelect} jiraEnabled={jiraEnabled} sentryEnabled={sentryEnabled} />}
+          {msg.sentryPicker && <SentryIssuePicker orgSlug={sentryOrg} projectSlug={sentryProject} onSelect={onSentrySelect} />}
           {msg.steps && <PipelineMessage steps={msg.steps} />}
           {msg.result && <ResultCard data={msg.result} />}
         </div>
@@ -257,6 +366,9 @@ function SettingsPanel({ onBack }) {
     anthropicKey: "",
     jiraEmail: "",
     jiraToken: "",
+    sentryToken: "",
+    sentryOrg: "",
+    sentryProject: "",
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -271,6 +383,9 @@ function SettingsPanel({ onBack }) {
           anthropicKey: data.anthropicKey || "",
           jiraEmail: data.jiraEmail || "",
           jiraToken: data.jiraToken || "",
+          sentryToken: data.sentryToken || "",
+          sentryOrg: data.sentryOrg || "",
+          sentryProject: data.sentryProject || "",
         });
       })
       .catch(() => {});
@@ -374,6 +489,46 @@ function SettingsPanel({ onBack }) {
         </label>
       </div>
 
+      <div className="settings-section">
+        <div className="settings-section-header">
+          <h3>Sentry</h3>
+          <span className={`token-status ${settings.hasSentry ? "configured" : "optional"}`}>
+            {settings.hasSentry ? "Configured" : "Optional"}
+          </span>
+        </div>
+        <label className="settings-label">
+          Auth Token
+          <input
+            type="password"
+            className="settings-input"
+            placeholder="sntrys_xxxxxxxxxxxxxxxxxxxx"
+            value={form.sentryToken}
+            onChange={(e) => setForm({ ...form, sentryToken: e.target.value })}
+          />
+          <span className="settings-hint">Requires <code>project:read</code> scope</span>
+        </label>
+        <label className="settings-label">
+          Organization Slug
+          <input
+            type="text"
+            className="settings-input"
+            placeholder="my-org"
+            value={form.sentryOrg}
+            onChange={(e) => setForm({ ...form, sentryOrg: e.target.value })}
+          />
+        </label>
+        <label className="settings-label">
+          Project Slug
+          <input
+            type="text"
+            className="settings-input"
+            placeholder="my-project"
+            value={form.sentryProject}
+            onChange={(e) => setForm({ ...form, sentryProject: e.target.value })}
+          />
+        </label>
+      </div>
+
       <div className="settings-actions">
         <button className="settings-save" onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : saved ? "Saved!" : "Save Settings"}
@@ -418,6 +573,9 @@ export default function Home() {
   const [phase, setPhase] = useState(PHASE.REPO);
   const [repoInfo, setRepoInfo] = useState(null);
   const [jiraEnabled, setJiraEnabled] = useState(false);
+  const [sentryEnabled, setSentryEnabled] = useState(false);
+  const [sentryOrg, setSentryOrg] = useState("");
+  const [sentryProject, setSentryProject] = useState("");
   const [hasTokens, setHasTokens] = useState(false);
   const [input, setInput] = useState("");
   const [loadingConv, setLoadingConv] = useState(false);
@@ -431,6 +589,9 @@ export default function Home() {
       .then((r) => r.json())
       .then((d) => {
         setJiraEnabled(d.jiraEnabled);
+        setSentryEnabled(d.sentryEnabled);
+        setSentryOrg(d.sentryOrg || "");
+        setSentryProject(d.sentryProject || "");
         setHasTokens(d.hasTokens);
       })
       .catch(() => {});
@@ -553,18 +714,32 @@ export default function Home() {
 
   function handleSourceSelect(choice) {
     if (choice === "jira" && !jiraEnabled) return;
+    if (choice === "sentry" && !sentryEnabled) return;
 
-    pushMsg({ role: "user", text: choice === "jira" ? "Use a Jira ticket" : "Describe manually" });
+    const labels = { jira: "Use a Jira ticket", sentry: "Use a Sentry issue", manual: "Describe manually" };
+    pushMsg({ role: "user", text: labels[choice] || "Describe manually" });
 
     if (choice === "jira") {
       pushMsg({ role: "agent", text: "Paste your Jira ticket URL (e.g. https://company.atlassian.net/browse/PROJ-123)." });
       setPhase(PHASE.JIRA);
       persistConvUpdate({ phase: PHASE.JIRA });
+    } else if (choice === "sentry") {
+      pushMsg({ role: "agent", text: "Here are the unresolved issues from your Sentry project. Pick one to fix:", sentryPicker: true });
+      setPhase(PHASE.SENTRY);
+      persistConvUpdate({ phase: PHASE.SENTRY });
     } else {
       pushMsg({ role: "agent", text: "Describe the bug or task you'd like me to fix." });
       setPhase(PHASE.DESCRIBE);
       persistConvUpdate({ phase: PHASE.DESCRIBE });
     }
+  }
+
+  async function handleSentrySelect(issue) {
+    const description = `[Sentry ${issue.shortId}] ${issue.title}\n\nCulprit: ${issue.culprit || "N/A"}\nLevel: ${issue.level}\nEvents: ${issue.count} | Users affected: ${issue.userCount}\nFirst seen: ${issue.firstSeen}\nLast seen: ${issue.lastSeen}\nPermalink: ${issue.permalink || "N/A"}`;
+
+    pushMsg({ role: "user", text: `Fix Sentry issue ${issue.shortId}: ${issue.title}` });
+    pushMsg({ role: "agent", text: `Starting fix pipeline for **${issue.shortId}** — "${issue.title}"…` });
+    await runPipeline(description);
   }
 
   async function runPipeline(description) {
@@ -783,9 +958,11 @@ export default function Home() {
           ? "Describe the bug or task you want fixed…"
           : phase === PHASE.RUNNING
             ? "Pipeline running…"
-            : "Choose an option above…";
+            : phase === PHASE.SENTRY
+              ? "Select an issue from the list above…"
+              : "Choose an option above…";
 
-  const inputDisabled = phase === PHASE.RUNNING || phase === PHASE.SOURCE || !hasTokens;
+  const inputDisabled = phase === PHASE.RUNNING || phase === PHASE.SOURCE || phase === PHASE.SENTRY || !hasTokens;
 
   const phaseHintText =
     phase === PHASE.REPO
@@ -794,9 +971,11 @@ export default function Home() {
         ? `Working on ${repoInfo?.owner}/${repoInfo?.repo} — Step 2 of 3 — Choose input method`
         : phase === PHASE.JIRA
           ? `Working on ${repoInfo?.owner}/${repoInfo?.repo} — Step 2 of 3 — Paste Jira ticket`
-          : phase === PHASE.DESCRIBE
-            ? `Working on ${repoInfo?.owner}/${repoInfo?.repo} — Step 3 of 3 — Describe the task`
-            : null;
+          : phase === PHASE.SENTRY
+            ? `Working on ${repoInfo?.owner}/${repoInfo?.repo} — Step 2 of 3 — Pick a Sentry issue`
+            : phase === PHASE.DESCRIBE
+              ? `Working on ${repoInfo?.owner}/${repoInfo?.repo} — Step 3 of 3 — Describe the task`
+              : null;
 
   return (
     <div className="app-shell">
@@ -861,6 +1040,9 @@ export default function Home() {
               .then((r) => r.json())
               .then((d) => {
                 setJiraEnabled(d.jiraEnabled);
+                setSentryEnabled(d.sentryEnabled);
+                setSentryOrg(d.sentryOrg || "");
+                setSentryProject(d.sentryProject || "");
                 setHasTokens(d.hasTokens);
               })
               .catch(() => {});
@@ -903,7 +1085,11 @@ export default function Home() {
                 key={i}
                 msg={msg}
                 onSourceSelect={handleSourceSelect}
+                onSentrySelect={handleSentrySelect}
                 jiraEnabled={jiraEnabled}
+                sentryEnabled={sentryEnabled}
+                sentryOrg={sentryOrg}
+                sentryProject={sentryProject}
                 userImage={session?.user?.image}
               />
             ))}

@@ -18,9 +18,13 @@ export async function GET() {
     anthropicKey: tokens.anthropicKey ? "••••" + tokens.anthropicKey.slice(-4) : "",
     jiraEmail: tokens.jiraEmail || "",
     jiraToken: tokens.jiraToken ? "••••" + tokens.jiraToken.slice(-4) : "",
+    sentryToken: tokens.sentryToken ? "••••" + tokens.sentryToken.slice(-4) : "",
+    sentryOrg: tokens.sentryOrg || "",
+    sentryProject: tokens.sentryProject || "",
     hasGithub: !!tokens.githubToken,
     hasAnthropic: !!tokens.anthropicKey,
     hasJira: !!(tokens.jiraEmail && tokens.jiraToken),
+    hasSentry: !!tokens.sentryToken,
   });
 }
 
@@ -44,6 +48,11 @@ export async function PUT(request) {
     jiraToken: body.jiraToken?.startsWith("••••")
       ? existing.jiraToken
       : (body.jiraToken || existing.jiraToken || ""),
+    sentryToken: body.sentryToken?.startsWith("••••")
+      ? existing.sentryToken
+      : (body.sentryToken || existing.sentryToken || ""),
+    sentryOrg: body.sentryOrg ?? existing.sentryOrg ?? "",
+    sentryProject: body.sentryProject ?? existing.sentryProject ?? "",
   };
 
   await updateUserTokens(session.user.id, tokens);
