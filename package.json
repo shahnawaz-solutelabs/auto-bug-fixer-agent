@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.30.0",
     "@auth/mongodb-adapter": "^3.11.1",
     "@octokit/rest": "^21.0.0",
+    "@sentry/nextjs": "^10.39.0",
     "dotenv": "^16.4.5",
     "mongodb": "^6.12.0",
     "next": "^14.2.0",
